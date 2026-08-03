@@ -3,7 +3,7 @@ title: 'One GET, One Read'
 titleHtml: 'One GET, <em>One Read</em>'
 summary: "A stored-markdown gadget in a newsroom's comments let me forge article reads — quietly poisoning the authenticated analytics the whole business ran on. A logic bug, not a payload."
 standfirst: 'The payload was a markdown image. The vulnerability was a business decision.'
-date: '2026-07-25'
+date: '2026-08-1'
 tag: 'WRITEUP'
 readingMinutes: 9
 status: 'DISCLOSED'

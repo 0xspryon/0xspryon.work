@@ -125,6 +125,13 @@ a {
 	font-family: var(--serif);
 }
 
+/* In-prose links (markdown) — underlined, matching the About page. */
+.post-body a {
+	color: var(--ink);
+	text-decoration: underline;
+	text-underline-offset: 3px;
+}
+
 .post-body code:not(pre code) {
 	font-family: var(--mono);
 	font-size: 0.88em;

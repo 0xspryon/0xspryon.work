@@ -31,9 +31,11 @@
   <div class="body">
     <h2 class="section-head">01_WHOAMI</h2>
     <p>
-      I'm an independent security researcher. I spend most of my time reading
-      code that was never meant to be read closely — protocol parsers,
-      allocators, firmware blobs — and figuring out where the assumptions break.
+      I'm an independent security researcher who go by the name
+      <Cursor><em><strong>&nbsp;halfabit&nbsp;&nbsp;</strong></em></Cursor>. I
+      spend most of my time reading code that was never meant to be read closely
+      — protocol parsers, allocators, firmware blobs — and figuring out where
+      the assumptions break.
     </p>
     <p>
       This site is where I write it down. Not just the bugs, but the process

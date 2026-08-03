@@ -1,13 +1,11 @@
-# Serves the prerendered static site in ./build.
-# Deploy: `npm run build`, then reload Caddy pointing at this file.
+# Container serving config — used by the Dockerfile's serve stage.
+# Listens on plain HTTP :80; TLS + routing are handled upstream by Dokploy's
+# Traefik reverse proxy, so there is no domain block and no automatic HTTPS.
 #
-#   caddy run --config ./Caddyfile
-#
-# Swap `springfieldyonga.work` for `:8080` to serve locally over HTTP without
-# automatic HTTPS.
+# (The root-level ./Caddyfile is the bare-metal variant with the real domain.)
 
-springfieldyonga.work, www.springfieldyonga.work {
-	root * /srv/springfieldyonga/build
+:80 {
+	root * /srv
 	encode gzip zstd
 
 	# SvelteKit's static adapter emits pretty-URL directories (index.html per

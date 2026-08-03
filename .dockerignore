@@ -1,0 +1,14 @@
+# Keep the build context small and reproducible.
+node_modules
+build
+.svelte-kit
+.git
+.gitignore
+.claude
+.dockerignore
+Dockerfile
+README.md
+Caddyfile
+design_handoff_security_blog
+vite.config.js.timestamp-*
+*.log

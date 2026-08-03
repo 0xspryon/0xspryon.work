@@ -1,0 +1,49 @@
+# Dokploy "Compose" service.
+#
+# Routing + TLS are handled by Dokploy's Traefik reverse proxy via the labels
+# below. The container joins Dokploy's shared `dokploy-network` so Traefik can
+# reach it — no host ports are published; Traefik proxies to port 80 over that
+# network.
+#
+# The Traefik labels assume Dokploy's default proxy setup:
+#   entrypoints:  web (:80), websecure (:443)
+#   certresolver: letsencrypt
+# If your Dokploy Traefik uses different names, adjust them (or remove the
+# labels and add the domain through Dokploy's UI, which injects its own labels).
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    expose:
+      - "80"
+    networks:
+      - dokploy-network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:80/"]
+      interval: 30s
+      timeout: 5s
+      start_period: 5s
+      retries: 3
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=dokploy-network
+
+      # HTTPS router
+      - traefik.http.routers.halfabit-web.rule=Host(`halfabit.work`) || Host(`www.halfabit.work`)
+      - traefik.http.routers.halfabit-web.entrypoints=websecure
+      - traefik.http.routers.halfabit-web.tls=true
+      - traefik.http.routers.halfabit-web.tls.certresolver=letsencrypt
+      - traefik.http.services.halfabit-web.loadbalancer.server.port=80
+
+      # HTTP router → redirect to HTTPS
+      - traefik.http.routers.halfabit-web-http.rule=Host(`halfabit.work`) || Host(`www.halfabit.work`)
+      - traefik.http.routers.halfabit-web-http.entrypoints=web
+      - traefik.http.routers.halfabit-web-http.middlewares=halfabit-web-redirect
+      - traefik.http.middlewares.halfabit-web-redirect.redirectscheme.scheme=https
+
+networks:
+  dokploy-network:
+    external: true

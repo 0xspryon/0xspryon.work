@@ -4,6 +4,13 @@
 	const links = [
 		{ label: 'EMAIL', href: 'mailto:springfieldyonga@outlook.com', icon: 'las la-envelope' },
 		{ label: 'GITHUB', href: 'https://github.com/0xspryon', icon: 'lab la-github' },
+		{
+			label: 'X',
+			href: 'https://x.com/half4bit',
+			// line-awesome (abandoned at 1.3.0) has no X glyph — inline the mark.
+			iconSvg:
+				'<svg class="x-icon" viewBox="0 0 512 512" aria-hidden="true" focusable="false"><path d="M389.2 48h70.6L305.6 224.2 487 464H345L233.7 318.6 106.5 464H35.8L200.7 275.5 26.8 48H172.4L272.9 180.9 389.2 48zM364.4 421.8h39.1L151.1 88h-42L364.4 421.8z"/></svg>'
+		},
 		{ label: 'PGP_KEY', href: '/pgp.txt', icon: 'las la-key' },
 		{ label: 'RSS', href: '/rss.xml', icon: 'las la-rss' }
 	];
@@ -17,7 +24,10 @@
 	{/if}
 	<nav class="right" aria-label="External links">
 		{#each links as link (link.label)}
-			<a href={link.href}><i class={link.icon}></i>{link.label}</a>
+			<a href={link.href}
+				>{#if link.iconSvg}{@html link.iconSvg}{:else}<i class={link.icon}
+					></i>{/if}{link.label}</a
+			>
 		{/each}
 	</nav>
 </footer>
@@ -52,6 +62,12 @@
 	}
 	.right a i {
 		font-size: 14px;
+	}
+	/* Inline X mark — sized to sit with the line-awesome glyphs, inherits color. */
+	.right a :global(.x-icon) {
+		width: 12px;
+		height: 12px;
+		fill: currentColor;
 	}
 
 	@media (max-width: 700px) {

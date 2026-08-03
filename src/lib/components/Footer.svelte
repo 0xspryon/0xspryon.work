@@ -2,7 +2,8 @@
 	let { variant = 'status' } = $props();
 
 	const links = [
-		{ label: 'GITHUB', href: 'https://github.com/halfabit', icon: 'lab la-github' },
+		{ label: 'EMAIL', href: 'mailto:springfieldyonga@outlook.com', icon: 'las la-envelope' },
+		{ label: 'GITHUB', href: 'https://github.com/0xspryon', icon: 'lab la-github' },
 		{ label: 'PGP_KEY', href: '/pgp.txt', icon: 'las la-key' },
 		{ label: 'RSS', href: '/rss.xml', icon: 'las la-rss' }
 	];
@@ -54,13 +55,19 @@
 	}
 
 	@media (max-width: 700px) {
+		/* Stack: status row on top, links block below. */
 		.site-footer {
+			flex-direction: column;
+			align-items: stretch;
 			font-size: 10px;
 			padding: 22px var(--frame-pad);
-			gap: 10px;
+			gap: 18px;
 		}
+		/* Links split into two columns. */
 		.right {
-			gap: 16px;
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 14px 16px;
 		}
 	}
 </style>

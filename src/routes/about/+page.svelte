@@ -56,7 +56,7 @@
 
     <h2 class="section-head">03_CONTACT</h2>
     <p>
-      Reach me on <a class="inline-link" href="https://github.com/halfabit"
+      Reach me on <a class="inline-link" href="https://github.com/0xspryon"
         >GitHub</a
       >. For anything sensitive, encrypt it to my
       <a class="inline-link" href="/pgp.txt">PGP key</a>. New write-ups go out

@@ -3,7 +3,7 @@ title: 'One GET, One Read'
 titleHtml: 'One GET, <em>One Read</em>'
 summary: "A stored-markdown gadget in a newsroom's comments let me forge article reads — quietly poisoning the authenticated analytics the whole business ran on. A logic bug, not a payload."
 standfirst: 'The payload was a markdown image. The vulnerability was a business decision.'
-date: '2026-08-1'
+date: '2026-08-01'
 tag: 'WRITEUP'
 readingMinutes: 9
 status: 'DISCLOSED'
@@ -98,7 +98,7 @@ What I could argue, and did:
 - The article view auto-surfaces its **10 most recent comments**, so my gadget re-arms itself on every viewer.
 - The **more reads an article racks up, the more likely it is to be promoted** into the app's discovery feed.
 
-Net: I could puppet the discovery section into featuring any article I chose. I wrote it up as a **low** and submitted it through [bugbounty.ch](https://www.bugbounty.ch/), and it triaged as low. The publisher agreed and paid a  &l;1K€ bounty. I filed it away as a tidy little logic bug and moved on.
+Net: I could puppet the discovery section into featuring any article I chose. I wrote it up as a **low** and submitted it through [bugbounty.ch](https://www.bugbounty.ch/), and it triaged as low. The publisher agreed and paid a €350 bounty. I filed it away as a tidy little logic bug and moved on.
 
 ## 07_THE_IMPACT_I_MISSED
 

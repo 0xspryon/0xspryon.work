@@ -11,7 +11,7 @@
 </script>
 
 <svelte:head>
-	<title>Tags — Springfield Yonga</title>
+	<title>Tags — Half a Bit</title>
 	<meta name="description" content="Browse posts by tag." />
 </svelte:head>
 

@@ -2,7 +2,7 @@
 	let { variant = 'status' } = $props();
 
 	const links = [
-		{ label: 'GITHUB', href: 'https://github.com/springfieldyonga', icon: 'lab la-github' },
+		{ label: 'GITHUB', href: 'https://github.com/halfabit', icon: 'lab la-github' },
 		{ label: 'PGP_KEY', href: '/pgp.txt', icon: 'las la-key' },
 		{ label: 'RSS', href: '/rss.xml', icon: 'las la-rss' }
 	];
@@ -12,7 +12,7 @@
 	{#if variant === 'status'}
 		<span class="left">STATUS: OPERATIONAL&nbsp;&nbsp;|&nbsp;&nbsp;LAST_PUSH: {__BUILD_TIME__}</span>
 	{:else}
-		<span class="left">SPRINGFIELD_YONGA // {new Date(__BUILD_TIME__.slice(0, 10)).getFullYear()}</span>
+		<span class="left">HALFABIT // {new Date(__BUILD_TIME__.slice(0, 10)).getFullYear()}</span>
 	{/if}
 	<nav class="right" aria-label="External links">
 		{#each links as link (link.label)}

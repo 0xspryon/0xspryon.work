@@ -47,8 +47,8 @@
 </script>
 
 <svelte:head>
-	<title>Writing — Springfield Yonga</title>
-	<meta name="description" content="All posts by Springfield Yonga." />
+	<title>Writing — Half a Bit</title>
+	<meta name="description" content="All posts by Half a Bit." />
 </svelte:head>
 
 <Header />

@@ -12,8 +12,11 @@
 	import '@fontsource/ibm-plex-mono/700.css';
 	import 'line-awesome/dist/line-awesome/css/line-awesome.min.css';
 	import '../app.css';
+	import LoadingScreen from '$lib/components/LoadingScreen.svelte';
 
 	let { children } = $props();
 </script>
+
+<LoadingScreen />
 
 {@render children()}

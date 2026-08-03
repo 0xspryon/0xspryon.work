@@ -9,7 +9,7 @@
 </script>
 
 <svelte:head>
-	<title>Springfield Yonga — Notes on breaking &amp; mending software</title>
+	<title>Half a Bit — Notes on breaking &amp; mending software</title>
 	<meta
 		name="description"
 		content="Security researcher. I break things to understand them — then write down what it taught me."
@@ -21,7 +21,7 @@
 <main>
 	<section class="hero">
 		<p class="prompt">$ whoami</p>
-		<h1>Notes on breaking <em>&amp; mending</em> software.</h1>
+		<h1>Yonga Springfield<br /><em>aka halfabit.</em></h1>
 		<p class="bio">
 			Security researcher. I break things to understand them — then write down what it taught me<Cursor
 				>.</Cursor

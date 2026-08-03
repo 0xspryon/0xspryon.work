@@ -5,7 +5,7 @@
 </script>
 
 <svelte:head>
-	<title>{page.status} — Springfield Yonga</title>
+	<title>{page.status} — Half a Bit</title>
 </svelte:head>
 
 <Header />

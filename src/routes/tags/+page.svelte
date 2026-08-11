@@ -11,7 +11,7 @@
 </script>
 
 <svelte:head>
-	<title>Tags — Half a Bit</title>
+	<title>Tags — 0xspryon</title>
 	<meta name="description" content="Browse posts by tag." />
 </svelte:head>
 

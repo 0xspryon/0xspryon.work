@@ -2,7 +2,7 @@ import { posts } from '$lib/posts.js';
 
 export const prerender = true;
 
-const SITE = 'https://halfabit.work';
+const SITE = 'https://0xspryon.work';
 
 function escapeXml(str) {
 	return str
@@ -29,7 +29,7 @@ export function GET() {
 	const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
 	<channel>
-		<title>Half a Bit</title>
+		<title>0xspryon</title>
 		<link>${SITE}</link>
 		<description>Notes on breaking and mending software.</description>
 		<language>en</language>

@@ -20,7 +20,7 @@
 <header class="site-header">
   <a class="wordmark" href="/">
     <span class="tilde">~/</span>
-    <span class="name">hbt</span>
+    <span class="name">0xspryon</span>
   </a>
 
   <nav class="nav-desktop" aria-label="Primary">

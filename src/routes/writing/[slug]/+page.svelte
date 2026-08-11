@@ -8,7 +8,7 @@
 </script>
 
 <svelte:head>
-	<title>{data.post.title} — Half a Bit</title>
+	<title>{data.post.title} — 0xspryon</title>
 	<meta name="description" content={data.post.summary} />
 </svelte:head>
 

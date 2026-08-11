@@ -5,7 +5,7 @@ summary: "The stack behind the vuln bank — Effect, Hono, Postgres — and the 
 standfirst: 'Two pieces, one app. The knowledge service and the agent interface are independent — and keeping them that way is the whole design.'
 date: '2026-08-02'
 tag: 'HACKBOT'
-readingMinutes: 8
+readingMinutes: 9
 status: 'ONGOING'
 chip: 'BUILD_LOG'
 ---
@@ -90,7 +90,15 @@ server.tool('vulnbank_retrieve', RetrieveSchema, (args) => runRetrieve(args))
 
 Both doorways call `runRetrieve`. Neither one *is* the retrieval — they translate a request into the core's language and translate the result back. Swap the model behind `Retriever`, and both doors get the upgrade for free. Add a third door, and the core never notices.
 
-## 05_NEXT
+## 05_THE_DOORWAY_GOT_THINNER
+
+As I was drawing this up, MCP shipped its `2026-07-28` revision — the largest rewrite since launch — and its headline change is a gift to this design: **the protocol went stateless.** No more `initialize` handshake, no protocol-level session, no session header. Every request is self-contained; if a server needs continuity it mints an explicit handle and has the caller pass it back as a plain argument, never a hidden session.
+
+That's nearly word-for-word the rule I'd already adopted for the engine. Retrieval is request/response and the MCP server holds no session state, so the new spec didn't cost me a redesign — it *ratified* the seam. A stateless doorway is the thinnest possible doorway.
+
+In practice, targeting `2026-07-28` means a short checklist on the interface side: implement the `server/discover` RPC, stamp every result with `resultType: "complete"`, and return `ttlMs` + `cacheScope` on the now-cacheable `tools/list` so clients cache my tool list instead of re-polling it. And because method and tool names now travel in `Mcp-Method` / `Mcp-Name` headers, the Hono edge can route and authorize on headers without ever reading the body — a bonus that only makes the interface layer dumber, which is exactly where I want it.
+
+## 06_NEXT
 
 With the stack settled and the seam drawn, the next post goes inside the engine: **The Vuln RAG System** — ingestion, embeddings, hybrid search, and reranking, with the security-specific gotchas that make this different from a generic docs-RAG.
 

@@ -40,7 +40,7 @@
 		<dl class="meta-row">
 			<div class="meta-field">
 				<dt>AUTHOR</dt>
-				<dd>HALFABIT</dd>
+				<dd>0XSPRYON</dd>
 			</div>
 			<div class="meta-field">
 				<dt>PUBLISHED</dt>

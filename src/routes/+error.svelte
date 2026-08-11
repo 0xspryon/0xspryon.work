@@ -5,7 +5,7 @@
 </script>
 
 <svelte:head>
-	<title>{page.status} — Half a Bit</title>
+	<title>{page.status} — 0xspryon</title>
 </svelte:head>
 
 <Header />

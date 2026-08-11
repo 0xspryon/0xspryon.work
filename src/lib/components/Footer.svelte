@@ -20,7 +20,7 @@
 	{#if variant === 'status'}
 		<span class="left">STATUS: OPERATIONAL&nbsp;&nbsp;|&nbsp;&nbsp;LAST_PUSH: {__BUILD_TIME__}</span>
 	{:else}
-		<span class="left">HALFABIT // {new Date(__BUILD_TIME__.slice(0, 10)).getFullYear()}</span>
+		<span class="left">0XSPRYON // {new Date(__BUILD_TIME__.slice(0, 10)).getFullYear()}</span>
 	{/if}
 	<nav class="right" aria-label="External links">
 		{#each links as link (link.label)}

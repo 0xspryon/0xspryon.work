@@ -13,10 +13,10 @@
 </script>
 
 <svelte:head>
-  <title>About — Half a Bit</title>
+  <title>About — 0xspryon</title>
   <meta
     name="description"
-    content="Half a Bit — independent security researcher writing about breaking and mending software."
+    content="0xspryon — independent security researcher writing about breaking and mending software."
   />
 </svelte:head>
 
@@ -32,7 +32,7 @@
     <h2 class="section-head">01_WHOAMI</h2>
     <p>
       I'm an independent security researcher who go by the name
-      <Cursor><em><strong>&nbsp;halfabit&nbsp;&nbsp;</strong></em></Cursor>. I
+      <Cursor><em><strong>&nbsp;0xspryon&nbsp;&nbsp;</strong></em></Cursor>. I
       spend most of my time reading code that was never meant to be read closely
       — protocol parsers, allocators, firmware blobs — and figuring out where
       the assumptions break.

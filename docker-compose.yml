@@ -32,17 +32,17 @@ services:
       - traefik.docker.network=dokploy-network
 
       # HTTPS router
-      - traefik.http.routers.halfabit-web.rule=Host(`halfabit.work`) || Host(`www.halfabit.work`)
-      - traefik.http.routers.halfabit-web.entrypoints=websecure
-      - traefik.http.routers.halfabit-web.tls=true
-      - traefik.http.routers.halfabit-web.tls.certresolver=letsencrypt
-      - traefik.http.services.halfabit-web.loadbalancer.server.port=80
+      - traefik.http.routers.0xspryon-web.rule=Host(`0xspryon.work`) || Host(`www.0xspryon.work`)
+      - traefik.http.routers.0xspryon-web.entrypoints=websecure
+      - traefik.http.routers.0xspryon-web.tls=true
+      - traefik.http.routers.0xspryon-web.tls.certresolver=letsencrypt
+      - traefik.http.services.0xspryon-web.loadbalancer.server.port=80
 
       # HTTP router → redirect to HTTPS
-      - traefik.http.routers.halfabit-web-http.rule=Host(`halfabit.work`) || Host(`www.halfabit.work`)
-      - traefik.http.routers.halfabit-web-http.entrypoints=web
-      - traefik.http.routers.halfabit-web-http.middlewares=halfabit-web-redirect
-      - traefik.http.middlewares.halfabit-web-redirect.redirectscheme.scheme=https
+      - traefik.http.routers.0xspryon-web-http.rule=Host(`0xspryon.work`) || Host(`www.0xspryon.work`)
+      - traefik.http.routers.0xspryon-web-http.entrypoints=web
+      - traefik.http.routers.0xspryon-web-http.middlewares=0xspryon-web-redirect
+      - traefik.http.middlewares.0xspryon-web-redirect.redirectscheme.scheme=https
 
 networks:
   dokploy-network:

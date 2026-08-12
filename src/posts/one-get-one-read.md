@@ -24,11 +24,11 @@ I did the usual first pass on the client portal — XSS, SSRF, auth bypass, the 
 
 Then something small snagged. The **web** comment box is a plain WYSIWYG editor with HTML input disabled — locked down, nothing to chew on. But the **mobile** app's comment field supports a tiny slice of markdown: bold, italics, strikethrough. Two different comment surfaces, two different input models, one shared backend.
 
-After a brainstorm with bit — my hackbot, aka *bit*, pun fully intended — we tried the obvious thing a limited markdown parser makes you try: a markdown image.
+After a brainstorm with *bit*(my hackbot) we tried the obvious thing a limited markdown parser makes you try: a markdown image.
 
 ```md:COMMENT (mobile input)
 Great read!
-![](https://REDACTED/article/8842)
+![](https://REDACTED/profiles/my_profile_pictur.png)
 ```
 
 It was accepted. It didn't render in the mobile comment view. We shrugged and moved on, assuming the parser just allowlisted inline text formatting and dropped images on the floor.
@@ -45,13 +45,19 @@ At that point the tiredness left my eyes. I had a stored, cross-surface request 
 
 ## 04_FIVE_DAYS_AGAINST_A_WALL
 
-I spent two days trying to weaponize it into something classic and got nowhere. Then five more. SameSite cookies shut the door on every account-takeover angle I could think of — no riding the session cross-site, no CSRF worth the name. I had the entire app model in my head and kept coming up empty.
+I spent two days trying to weaponize it into something classic and got nowhere. Then five more. SameSite cookies shut the door on every account-takeover angle I could think of — no riding the session cross-site, no CSRF or CSPT worth the name. I had the entire app model in my head and kept coming up empty.
 
 Past bug-bounty scars taught me one thing though: persistence pops bugs. I was sure there was something here.
 
 The break came when I stopped staring at the primitive and went back to staring at the *business*. I was looking at the read counter — the thing the whole platform is built around — and asked the only question that mattered: **how do I break this number?** And there was my gadget, waiting.
 
 What if the image `src` isn't an image at all, but the URL of an *article*? Rendering the comment fires a `GET` to that article. If a `GET` is a read… I could manufacture reads.
+
+```md:COMMENT (mobile input)
+Great read!
+![](https://REDACTED/article/424242)
+```
+
 
 To prove it I needed two facts nailed down:
 

@@ -44,6 +44,26 @@ services:
       - traefik.http.routers.0xspryon-web-http.middlewares=0xspryon-web-redirect
       - traefik.http.middlewares.0xspryon-web-redirect.redirectscheme.scheme=https
 
+      # halfabit.work (legacy domain) → permanent redirect to 0xspryon.work.
+      # Path and query string are preserved. Requires halfabit.work (and www)
+      # to have DNS A/AAAA records pointing at this host so letsencrypt can
+      # issue a cert for the HTTPS router.
+      - traefik.http.middlewares.halfabit-to-0xspryon.redirectregex.regex=^https?://(?:www\.)?halfabit\.work/(.*)
+      - traefik.http.middlewares.halfabit-to-0xspryon.redirectregex.replacement=https://0xspryon.work/$${1}
+      - traefik.http.middlewares.halfabit-to-0xspryon.redirectregex.permanent=true
+
+      - traefik.http.routers.halfabit-redirect.rule=Host(`halfabit.work`) || Host(`www.halfabit.work`)
+      - traefik.http.routers.halfabit-redirect.entrypoints=websecure
+      - traefik.http.routers.halfabit-redirect.tls=true
+      - traefik.http.routers.halfabit-redirect.tls.certresolver=letsencrypt
+      - traefik.http.routers.halfabit-redirect.middlewares=halfabit-to-0xspryon
+      - traefik.http.routers.halfabit-redirect.service=0xspryon-web
+
+      - traefik.http.routers.halfabit-redirect-http.rule=Host(`halfabit.work`) || Host(`www.halfabit.work`)
+      - traefik.http.routers.halfabit-redirect-http.entrypoints=web
+      - traefik.http.routers.halfabit-redirect-http.middlewares=halfabit-to-0xspryon
+      - traefik.http.routers.halfabit-redirect-http.service=0xspryon-web
+
 networks:
   dokploy-network:
     external: true

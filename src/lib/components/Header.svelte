@@ -11,6 +11,11 @@
       match: (p) => p.startsWith("/writing"),
     },
     { label: "TAGS", href: "/tags", match: (p) => p.startsWith("/tags") },
+    {
+      label: "BIT",
+      href: "https://bit.0xspryon.work",
+      match: () => false,
+    },
     { label: "ABOUT", href: "/about", match: (p) => p.startsWith("/about") },
   ];
 

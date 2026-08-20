@@ -5,7 +5,7 @@ summary: "The next phase of the vuln bank: making recall@k observable, mapping t
 standfirst: "I have a retrieval pipeline and one recall script. The next job is turning that snapshot into a feedback loop."
 date: '2026-08-19'
 tag: 'HACKBOT'
-readingMinutes: 16
+readingMinutes: 11
 status: 'ONGOING'
 chip: 'BUILD_LOG'
 ---
@@ -18,15 +18,22 @@ It did not prove the bank was good.
 
 Twenty queries are a smoke test. They do not represent the vocabulary, ambiguity, filters, misspellings, product names, payload fragments, or half-formed observations bit will produce during a real hunt. The harness runs when I remember to run it, prints one aggregate, and leaves no history. If recall drops next week, I cannot tell whether the cause was an embedding model, a reranker, a candidate limit, a new namespace, or a change in the corpus.
 
-The next phase is therefore not "install a better model." It is **build enough observability to know what better means**.
+Before comparing models, I need observable and reproducible evaluations that define what an improvement looks like.
 
 ## 02_RECALL_AS_A_TIME_SERIES
 
-The current harness has one gold record per query, so its reported recall@k is also success@k: did the expected record appear in the first `k` results?
+The current harness has one gold record `g_i` for each query `q_i`. Its reported recall@k is therefore numerically equal to success@k. Each query contributes 1 when its gold record appears in the top `k`, otherwise it contributes 0:
 
 ```text:CURRENT_METRIC
-success@k = queries with the expected record in top k / all evaluated queries
+success@k = (1 / N) × Σ 𝟙[g_i ∈ Retrieved_k(q_i)], for i = 1..N
+
+where:
+N                         = number of evaluation queries
+Retrieved_k(q_i)          = first k records returned for query q_i
+𝟙[condition]              = 1 when condition is true, otherwise 0
 ```
+
+For the current twenty-query set, each miss changes success@k by `1/20 = 0.05`, or five percentage points. That is why I should not read a small score change as a precise estimate of production quality.
 
 That stays as the headline because it maps directly to the product: bit receives five records, so an expected methodology outside the top five is unavailable to it. But I want every evaluation run to record more than one number:
 
@@ -58,11 +65,11 @@ The unit I care about is an evaluation run, not a log line. Each run should have
 
 Those zeroes are deliberate placeholders. I do not want to publish a benchmark result I have not reproduced and stored.
 
-Once runs are persisted, the useful view is a graph: recall and latency over time, annotated with model, corpus, and configuration changes. A regression threshold can then fail CI or block a deployment. At first I will use both an absolute floor and a "no worse than baseline" check; with a tiny evaluation set, one miss moves the score by five percentage points, so pretending the estimate is precise would be silly.
+Once runs are persisted, the useful view is a graph of recall and latency over time, annotated with model, corpus, and configuration changes. A regression threshold can then fail CI or block a deployment. At first I will use both an absolute floor and a "no worse than baseline" check, while accounting for the coarse five-point steps in this small evaluation set.
 
 ## 03_BUILDING_A_TEST_SET_I_CAN_TRUST
 
-The metric is the easy part. The gold set is the work.
+Calculating the metric is straightforward. Building a representative gold set is harder.
 
 I want to grow it in layers:
 
@@ -95,7 +102,7 @@ Model swaps are expensive and visible, so they attract attention. Several cheape
 
 I will change one family at a time. First candidate widths and `ef_search`, then representation fields, then lexical analysis, then models. Every run gets the same corpus and gold set, a warm-up, repeated latency samples, and a cold-start measurement. A configuration only wins if the gain survives across vulnerability classes and still fits the operational budget.
 
-There are two especially interesting representation experiments. The first is adding `title`, `when_to_use`, and `confirmation_signal` to the dense text instead of embedding only `symptom + procedure`. The second is splitting natural-language FTS from literal identifiers, perhaps with a `simple` dictionary or trigram index. Better input can outperform a larger model, and it is much cheaper to test.
+For the dense representation, I want to test adding `title`, `when_to_use`, and `confirmation_signal` instead of embedding only `symptom + procedure`. For lexical retrieval, I want to separate natural-language FTS from literal identifiers, perhaps with a `simple` dictionary or trigram index. Both experiments are cheaper than replacing the model and may improve retrieval on their own.
 
 ## 05_WHY_BGE_M3_IS_THE_BASELINE
 
@@ -103,11 +110,11 @@ The current pair is [`BAAI/bge-m3`](https://huggingface.co/BAAI/bge-m3) for 1024
 
 I did not choose them because I had proven they were the best cybersecurity models. I chose them because they were a credible, compatible pair that I could serve locally on CPU through Hugging Face Text Embeddings Inference. BGE-M3 supports long inputs and many languages, its 1024 dimensions fit pgvector cleanly, and the reranker is described by its authors as the lightweight member of their v2 family.
 
-Most importantly, they ran on the VPS I already had.
+They also ran on the VPS I already had, which was a firm requirement.
 
-Even then, the default TEI token budget caused an out-of-memory kill during model loading, so both services now use a 2048-token batch cap and automatic truncation. That constraint is not an embarrassing footnote; it is part of the architecture. A model that improves success@5 by two points but needs a GPU or turns every retrieval into a ten-second pause is not an upgrade for this deployment.
+Even then, the default TEI token budget caused an out-of-memory kill during model loading. Both services now use a 2048-token batch cap and automatic truncation. Any alternative has to fit the same deployment budget; a small recall improvement would not justify requiring a GPU or adding several seconds to every query.
 
-There was also a simpler reason: I needed to make a decision and keep moving. It is easy to spend two weeks reading embedding leaderboards before the system has one trustworthy evaluation query. BGE-M3 gave me a sound baseline against which future decisions can be evidence rather than taste.
+I also needed to make a decision and keep moving. It is easy to spend two weeks reading embedding leaderboards before the system has one trustworthy evaluation query. BGE-M3 gave me a practical baseline that I can now compare against.
 
 One correction to my earlier language: only the model IDs and dimensions are fixed today. The production compose files still use `cpu-latest`, and no Hugging Face commit revision is pinned. Pinning both is part of the observability work because a baseline that can change underneath me is not a baseline.
 
@@ -115,9 +122,9 @@ One correction to my earlier language: only the model IDs and dimensions are fix
 
 There are two different ideas hiding behind "a cybersecurity model," and I need to keep them separate.
 
-The first is a **stronger retrieval model** trained for semantic search. Examples include [`jinaai/jina-embeddings-v3`](https://huggingface.co/jinaai/jina-embeddings-v3), with task-specific retrieval adapters and configurable dimensions, and [`NovaSearch/stella_en_1.5B_v5`](https://huggingface.co/NovaSearch/stella_en_1.5B_v5), an English retrieval model that supports Matryoshka dimensions. These are plausible retrieval candidates out of the box. Stella's roughly 1.5B-class backbone is also much heavier than BGE-M3, so CPU memory and latency may reject it before recall does. Jina v3 changes the query/document prompting contract, which means the experiment must apply its retrieval task correctly rather than merely swapping a model id.
+**Retrieval models:** [`jinaai/jina-embeddings-v3`](https://huggingface.co/jinaai/jina-embeddings-v3) provides task-specific retrieval adapters and configurable dimensions. [`NovaSearch/stella_en_1.5B_v5`](https://huggingface.co/NovaSearch/stella_en_1.5B_v5) is an English retrieval model with Matryoshka dimensions. Both are plausible candidates without additional training. Stella's roughly 1.5B-class backbone is much heavier than BGE-M3, so CPU memory and latency may rule it out. Jina v3 also changes the query/document prompting contract, which the experiment must apply correctly.
 
-The second is a **cybersecurity language model** such as [`ehsanaghaei/SecureBERT`](https://huggingface.co/ehsanaghaei/SecureBERT) or its newer Cisco successor. SecureBERT was pretrained on cybersecurity text, so vocabulary such as malware families, indicators, and threat intelligence should be less foreign to it than to a general encoder. But its published checkpoint is a masked-language-model backbone, not a sentence-retrieval model. Mean-pooling its hidden states and calling that an embedding would not be a fair comparison.
+**Cybersecurity encoders:** [`ehsanaghaei/SecureBERT`](https://huggingface.co/ehsanaghaei/SecureBERT) and its newer Cisco successor were pretrained on cybersecurity text. Vocabulary around malware families, indicators, and threat intelligence should be more familiar to them than to a general encoder. The published SecureBERT checkpoint is a masked-language-model backbone rather than a sentence-retrieval model, however, so mean-pooling its hidden states would not provide a fair comparison.
 
 The interesting experiment is to use a cybersecurity encoder as the starting point for **contrastive fine-tuning** on `(query, relevant methodology, hard negative)` triples. That could teach both the domain language and the retrieval objective. It also creates a model I have to train, version, evaluate, and maintain, so it comes after the benchmark, not before it.
 
@@ -128,7 +135,7 @@ The reranker has a similar ladder:
 - test the larger BGE v2 Gemma or MiniCPM rerankers if hardware allows, since BAAI positions them above v2-m3 for quality but at a much higher serving cost;
 - fine-tune a DeBERTa or SecureBERT-family sequence classifier on my graded security relevance pairs, with hard negatives from the current retriever.
 
-Domain adaptation is most likely to help on the hard distinctions: two records that share "Host header" but differ in exploit preconditions, or a terse symptom that never names the vulnerability. It can also overfit to familiar jargon and become worse at the messy language bit actually uses. That is exactly why the holdout and per-category breakdown matter.
+Domain adaptation may help distinguish two records that both mention "Host header" but have different exploit preconditions, or interpret a terse symptom that never names the vulnerability. It may also overfit to familiar jargon and perform worse on the messy language bit actually uses. A holdout and per-category breakdown should reveal that failure mode.
 
 ## 07_THE_EXPERIMENT_ORDER
 
@@ -146,7 +153,7 @@ Parallel indexes matter here. Replacing the live `vector(1024)` column in place 
 
 ## 08_WHAT_SUCCESS_LOOKS_LIKE
 
-The goal is not the highest recall number I can produce on a laptop. It is a retrieval system whose behavior I can explain:
+I want a retrieval system whose behavior I can explain and whose resource use matches the real deployment:
 
 - I can see when success@5 regresses and which query categories moved.
 - I can tell whether the miss happened during candidate generation, fusion, or reranking.
@@ -154,6 +161,4 @@ The goal is not the highest recall number I can produce on a laptop. It is a ret
 - I can reproduce a run from pinned code, models, data, and configuration.
 - I can change models without overwriting the last known-good index.
 
-That is less glamorous than announcing a cybersecurity embedding model. It is also the work that makes such a model useful.
-
-The first four posts were about making bit remember. This next phase is about noticing what it forgets, and learning from every miss.
+The next phase is to record misses, understand where they happen, and use that evidence to decide whether a new model is worth operating.

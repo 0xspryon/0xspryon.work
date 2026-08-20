@@ -4,14 +4,14 @@ summary: "Attack surface isn't just for software. A personal post about limits, 
 standfirst: 'The same discipline that maps a system''s attack surface works, uncomfortably well, on your own habits.'
 date: '2026-01-19'
 tag: 'LESSONS'
-readingMinutes: 6
+readingMinutes: 2
 status: 'PERSONAL'
 chip: 'PERSONAL'
 ---
 
 ## 01_BACKGROUND
 
-Burnout crept up the way most vulnerabilities do: a series of small, individually reasonable decisions that compounded into a failure nobody designed. Late nights, no boundaries, treating rest as a resource to be exploited rather than budgeted.
+I did not notice the burnout immediately. It built up through late nights, weak boundaries, too many new projects, and the habit of treating rest as optional.
 
 ## 02_VULNERABLE_SOURCE
 
@@ -23,10 +23,6 @@ while (awake) {
 }
 ```
 
-Threat modeling my own schedule felt absurd until it worked. What is my attack surface? What are the single points of failure? Where is the missing rate limit? The framing turned a vague sense of dread into a concrete list of fixes.
+Threat modeling my own schedule felt absurd, but it gave me a way to start. I wrote down which commitments were draining me, where one bad week could break the whole routine, and which limits I kept ignoring. That turned a vague sense of dread into a list of things I could change.
 
-> Rest is not a resource to exploit — it is the thing that keeps the system running.
->
-> Every "just this once" is a small privilege escalation against your future self.
->
-> Sustainable research beats heroic research over any timeline longer than a month.
+The biggest change was learning to treat rest as part of the work rather than time stolen from it. I still catch myself making exceptions, but I am more careful about how quickly "just this once" becomes the normal schedule.

@@ -1,30 +1,30 @@
 ---
 title: 'One GET, One Read'
 titleHtml: 'One GET, <em>One Read</em>'
-summary: "A stored-markdown gadget in a newsroom's comments let me forge article reads — quietly poisoning the authenticated analytics the whole business ran on. A logic bug, not a payload."
+summary: "A stored-markdown gadget in a newsroom's comments let me forge article reads and quietly poison the authenticated analytics the business relied on."
 standfirst: 'The payload was a markdown image. The vulnerability was a business decision.'
 date: '2026-08-01'
 tag: 'WRITEUP'
-readingMinutes: 9
+readingMinutes: 7
 status: 'DISCLOSED'
 chip: 'WRITEUP'
 ---
 
 ## 01_THE_PLATFORM
 
-The target was a digital news publisher — editors write, readers read, and the number of reads is the currency everything else is priced in. That count isn't a vanity metric on this platform. It grades articles. It rewards the editors who wrote the best-performing ones. It tells the newsroom who their readers are, what they care about, and *when* a piece mattered — whether a story is evergreen or burned bright for a week and died. That signal feeds real editorial decisions.
+The target was a digital news publisher where article reads influenced much more than the number shown on a page. The count helped grade articles, reward the editors behind the best-performing work, and show the newsroom what readers cared about. It also showed whether a story had lasting interest or only performed well for a few days. Editors used that information when deciding what to publish next.
 
-So the read count isn't a display value. It's an input to the business. Keep that in mind — it's the whole story.
+The read count directly affected business decisions, which became important later.
 
 The one implementation detail that matters: **the platform counts a `GET` request for an article as a read by whoever made it.** Server-side. No scroll depth, no dwell time, no client confirmation. Fetch the article, you read it.
 
 ## 02_THE_DEAD_ENDS
 
-I did the usual first pass on the client portal — XSS, SSRF, auth bypass, the standard rotation. Nothing. The app was tidy.
+I did the usual first pass on the client portal: XSS, SSRF, auth bypass, and the standard rotation. Nothing. The app was tidy.
 
-Then something small snagged. The **web** comment box is a plain WYSIWYG editor with HTML input disabled — locked down, nothing to chew on. But the **mobile** app's comment field supports a tiny slice of markdown: bold, italics, strikethrough. Two different comment surfaces, two different input models, one shared backend.
+Then something small caught my attention. The **web** comment box is a plain WYSIWYG editor with HTML input disabled. The **mobile** app, however, supports a small slice of markdown for bold, italics, and strikethrough. Both clients write comments to the same backend despite handling the input differently.
 
-After a brainstorm with *bit*(my hackbot) we tried the obvious thing a limited markdown parser makes you try: a markdown image.
+After a brainstorm with *bit* (my hackbot), we tried the obvious thing a limited markdown parser makes you try: a markdown image.
 
 ```md:COMMENT (mobile input)
 Great read!
@@ -37,19 +37,19 @@ That assumption was wrong, and it took a few days to find out.
 
 ## 03_THE_GADGET
 
-Mid-testing, bit flagged something I'd have missed: the image comment *did* render — not on mobile, but in the **web** article view, where the latest comments are shown under the piece. The mobile parser stored the raw markdown; the web renderer happily turned it into a real `<img>` and fetched the `src`.
+Mid-testing, bit flagged something I'd have missed. The image comment did not render on mobile, but it *did* render in the **web** article view where the latest comments appear. The mobile parser stored the raw markdown, and the web renderer turned it into a real `<img>` and fetched the `src`.
 
-That's the gadget: **a comment posted through the mobile markdown path becomes an attacker-controlled outbound request fired from every web reader's browser** when they open the article. Whatever URL I put in that image loads, from their session, without their knowledge.
+A comment posted through the mobile markdown path could therefore trigger an attacker-controlled request in a web reader's browser when they opened the article. Browser credentials would only accompany requests where origin and cookie policy allowed it, but same-origin article URLs were enough for what followed.
 
 At that point the tiredness left my eyes. I had a stored, cross-surface request primitive. I just didn't yet know what to do with it.
 
 ## 04_FIVE_DAYS_AGAINST_A_WALL
 
-I spent two days trying to weaponize it into something classic and got nowhere. Then five more. SameSite cookies shut the door on every account-takeover angle I could think of — no riding the session cross-site, no CSRF or CSPT worth the name. I had the entire app model in my head and kept coming up empty.
+I spent two days trying to turn it into something more familiar and got nowhere, then kept at it for five more. SameSite cookies blocked every account-takeover angle I could think of. I could not ride the session cross-site, and none of the CSRF or CSPT ideas held up.
 
-Past bug-bounty scars taught me one thing though: persistence pops bugs. I was sure there was something here.
+Previous bounty work made me reluctant to drop a useful primitive just because the obvious paths had failed.
 
-The break came when I stopped staring at the primitive and went back to staring at the *business*. I was looking at the read counter — the thing the whole platform is built around — and asked the only question that mattered: **how do I break this number?** And there was my gadget, waiting.
+The break came when I stopped staring at the primitive and reconsidered the read counter. If the platform treated a request as a read, the image did not need to point to an image at all. It could point to another article.
 
 What if the image `src` isn't an image at all, but the URL of an *article*? Rendering the comment fires a `GET` to that article. If a `GET` is a read… I could manufacture reads.
 
@@ -73,10 +73,10 @@ The access control turned out to be: none worth the name. A bare `GET` to an art
 Constraints I set for a trustworthy test:
 
 - **A very old, obscure article** dug out of the archive, so no genuine reader would wander in and poison the measurement.
-- **Under 1k reads**, because past that threshold the UI rounds — it shows `1k` or `1.2k` instead of an exact integer, and I needed exactness.
+- **Under 1k reads**, because the UI rounds larger values to `1k` or `1.2k`, and I needed an exact count.
 - **The platform's local midnight**, the quietest possible window, to keep organic traffic near zero.
 
-Then I sent **100** plain `GET`s to that article in Caido — raw requests, no JavaScript rendering phase, nothing that would fire secondary analytics. Just the fetch.
+Then I sent **100** plain `GET`s to that article in Caido. These were raw requests with no JavaScript rendering phase or secondary analytics, just the fetch.
 
 Three hours later the count had gone up by **exactly 100**. Not ~100. Exactly. The server-side handler was, in effect:
 
@@ -92,7 +92,7 @@ GET /article/:id
     return render(article)
 ```
 
-Then I ran the same idea through the gadget — the markdown-image comment pointing at the article — and watched a browser render fire the read. Same result. The primitive worked end to end.
+Then I tested the markdown-image comment with the article URL as its target. Rendering the comment added another read, confirming the full path worked.
 
 ## 06_THE_IMPACT_I_SAW
 
@@ -108,26 +108,20 @@ Net: I could puppet the discovery section into featuring any article I chose. I 
 
 ## 07_THE_IMPACT_I_MISSED
 
-Three weeks later I got a mitigation-review invite. I checked their fix, confirmed it was mitigated properly — and *then* they explained why it had been quietly re-rated to **high**.
+Three weeks later I got a mitigation-review invite. I checked their fix and confirmed it worked. They then explained why the report had quietly been re-rated to **high**.
 
-The read counter wasn't just a public popularity number. **For authenticated users, that forged image request went out with their auth tokens** — so the platform recorded *those specific, real readers* as having read whatever article I aimed the gadget at. And the entire internal analytics layer runs on authenticated reads:
+The read counter was also tied to authenticated analytics. For same-origin article requests, the browser included the reader's session cookies, so the platform attributed the forged read to that specific account. Those authenticated reads fed several internal reports:
 
 - which editors/field agents are performing best, and who gets rewarded;
 - what editorial line to lean into next;
 - which article categories are good paywall candidates and which aren't.
 
-My gadget didn't just inflate a vanity count. It could **corrupt the ground-truth dataset the business steers by** — attributing fabricated interest to real, identifiable readers, and pointing the newsroom down decisions built on a lie.
+The gadget could therefore corrupt the dataset the newsroom used for decisions by attributing fabricated interest to real, identifiable readers.
 
-The reason a single `GET` ever equalled a read was the least glamorous cause imaginable: **tech debt**. One developer on the mobile app, busy with bigger fish when reads were implemented, shipped the fast version — count it server-side on fetch — instead of the correct version: client-side, only after a scroll-depth and dwell-time threshold. The proper rewrite had been on the backlog, postponed, for four months. My report landed in the middle of that postponement and made the case for it undeniable. The severity bump came with a healthy four-figure bounty.
+The reason a single `GET` counted as a read was ordinary tech debt. A mobile developer with other priorities had implemented counting on the server when an article was fetched. A rewrite using client-side scroll depth and dwell time had sat in the backlog for four months. My report made that work urgent, and the severity increase came with a healthy four-figure bounty.
 
 ## 08_WHAT_I_TOOK_AWAY
 
-The lesson that stuck: **bugs aren't always an obscure payload — they're often a consequence of understanding the business logic and finding where you can bend it to your will instead of the devs'.** The payload here was a markdown image a beginner could write. The vulnerability was a decision about what counts as a read.
+What stayed with me was how ordinary the payload looked. The markdown image was simple; the real issue was the platform's decision about what counted as a read and how much depended on that count.
 
-Understanding an app to its core *before* hunting is what surfaces logic bugs like this — the kind that are hard to weaponize even for an AI. bit was genuinely great at the discovery end: it caught the cross-surface render I'd written off. But when I leaned on it to help *prove impact*, it couldn't — and neither could I, at first. That gap between finding a primitive and articulating what it costs the business is exactly where AI-augmented hunting still falls short for me, and exactly what I'm practicing next.
-
-> A read counter that trusts the request has already lost — it's counting fetches and calling them people.
->
-> The obscure payload finds the bug; understanding the business is what proves it matters.
->
-> Persistence popped this one. Five days against a wall, then one question: how do I break this number.
+Understanding the application before hunting is what helped turn this odd render into a meaningful logic bug. bit was genuinely useful during discovery because it caught the cross-surface behavior I had dismissed. It was less useful when I needed to prove the business impact, and I struggled with that too. Closing the gap between finding a primitive and explaining its actual cost is something I am still practicing.

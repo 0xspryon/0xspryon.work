@@ -1,22 +1,20 @@
 ---
 title: 'Vuln Bank Part 2: Four Indexes and One Wrong Turn'
 titleHtml: 'Vuln Bank Part 2: Four Indexes and One <em>Wrong Turn</em>'
-summary: "How the vuln bank stores knowledge — why one record is already one chunk, why each of the four indexes is the type it is, and why I ripped out IVFFlat for HNSW before the first migration ever shipped."
-standfirst: "You don't choose an index by taste. You choose it by the shape of the column — and I learned that by getting it wrong."
+summary: "How the vuln bank stores knowledge, why its query patterns need four indexes, and why I replaced IVFFlat with HNSW before the first migration shipped."
+standfirst: "I started with the wrong vector index. Working out why taught me what each index in this schema is actually doing."
 date: '2026-08-17'
 tag: 'HACKBOT'
-readingMinutes: 15
+readingMinutes: 10
 status: 'ONGOING'
 chip: 'BUILD_LOG'
 ---
 
 ## 01_WHERE_WE_LEFT_OFF
 
-In [Part 1](/writing/vuln-bank-tech-stack) I drew the seam: a RAG engine that knows nothing about its callers, and thin interfaces (Hono, MCP) that translate requests into the engine's language. That post was about the *shape* of the system. This one goes inside the engine — specifically, into how knowledge is stored and indexed, which is the half of retrieval that happens before any query arrives.
+In [Part 1](/writing/vuln-bank-tech-stack) I separated the RAG engine from its HTTP and MCP adapters. This post looks inside the engine at how records are stored and indexed before any query arrives.
 
-Most of what follows I did not know a month ago. I made a wrong call on the vector index and had to reverse it, and rather than present the finished schema as if it fell out of a design doc, I'll explain each piece the way I eventually understood it — concept first, then what it does in this codebase, then what it cost me to get there.
-
-If you've read a RAG tutorial and come away with "embed the docs, cosine-similarity the query, done," this post and the next are the gap between that sentence and a system you'd actually trust.
+Most of this was new to me a month ago. I made the wrong call on the vector index and had to reverse it, so I will explain the schema in the order I came to understand it rather than presenting it as an obvious finished design.
 
 ## 02_ONE_RECORD_IS_ONE_CHUNK
 
@@ -25,7 +23,7 @@ Quick refresher on what we're searching over, because it makes everything downst
 
 A **chunk**, in RAG, is the unit of text you retrieve and hand to the model. In most systems chunking is a genuine problem: you have a 40-page PDF, the model reads a few thousand tokens, so you slice the document up and inherit a pile of questions. How big? Overlapping or not? What happens when a sentence explaining a concept lands in chunk 7 and the concept is defined in chunk 3?
 
-The vuln bank sidesteps all of it by never having documents. A record is *already* the atomic unit — one technique, structured into typed fields:
+The vuln bank avoids most of that because it does not store long documents. Each record contains one technique in typed fields:
 
 ```sql:Postgres
 -- bit.records, trimmed to the fields that matter for retrieval
@@ -44,7 +42,7 @@ There is no dynamic chunker in this system. Each structured methodology record i
 
 One caveat to pin down before future-me trips on it: "whole" has a ceiling. The vector is produced from `symptom + procedure`, and the inference server runs with `--auto-truncate`. BGE-M3 supports long inputs, but my server's token budget is intentionally smaller to fit the VPS. A long procedure can therefore be represented only by its beginning. The schema limits help, but I still need truncation telemetry rather than relying on authors to keep every record short.
 
-One more column is doing quiet work:
+The table also has a generated full-text-search column:
 
 ```sql:Postgres
 fts tsvector generated always as (
@@ -57,14 +55,14 @@ fts tsvector generated always as (
 ) stored
 ```
 
-A `tsvector` is Postgres's parsed, normalised form of a document for full-text search — words reduced to stems, positions recorded, stop-words dropped. `generated always as ... stored` means Postgres computes and persists it on every insert and update. Nothing in my application code writes it; nothing can forget to.
+A `tsvector` is Postgres's parsed, normalised form of a document for full-text search. Words are reduced to stems, positions are recorded, and stop words are dropped. `generated always as ... stored` means Postgres computes and persists it on every insert and update, so application code never writes it directly.
 
-That's the raw material for the keyword half of search. Making it generated removes an application-level sync job: whenever Postgres accepts a record change, it recomputes the stored search vector in the same operation. If you take one habit from this post, take that one: when a derived value should follow a row automatically, consider letting the database own it.
+That powers the keyword half of search. Making it generated removes an application-level sync job because Postgres recomputes the search vector whenever the record changes.
 
 ## 03_FOUR_INDEXES_FOUR_SHAPES
 
 
-Now the part that took me the longest to internalise, and which I think most tutorials skip: **you don't choose an index type by taste. You choose it by the shape of the column.**
+The index type depends on the operators, data shape, and workload. This took me longer to understand than the SQL itself.
 
 The records table carries four indexes:
 
@@ -77,17 +75,17 @@ create index records_cwe_idx        on bit.records using gin  ("cwe");
 
 Split them into two jobs and it clicks.
 
-**Two indexes power the two ways of *finding*.** The HNSW index over `embedding` is the semantic leg: it can connect a paraphrased symptom such as "cache serves the wrong site's content" with a record about host-header cache poisoning. The GIN index over `fts` is the lexical leg: it rewards overlapping lexemes when the query goes through `websearch_to_tsquery`.
+The HNSW index over `embedding` powers semantic retrieval. It can connect a paraphrased symptom such as "cache serves the wrong site's content" with a record about host-header cache poisoning. The GIN index over `fts` powers lexical retrieval by rewarding overlapping lexemes after the query passes through `websearch_to_tsquery`.
 
 That second leg matters because security is full of exact-looking tokens: header names, CVE ids, parameter names, gadget classes, and payload syntax. There is an important limitation, though: PostgreSQL's English FTS parses, stems, and drops stop words. It is lexical search, not byte-for-byte token search, so unusual punctuation and identifiers still need test cases. A future trigram or `simple`-dictionary leg may handle those better.
 
-**Two indexes power optional scope filters.** GIN over `namespaces` and GIN over `cwe`. These are not ranking signals; they make overlap queries efficient. They only improve correctness when the metadata and the filter supplied by the caller are themselves correct, and a multi-namespace record can legitimately belong to more than one vulnerability class.
+The other two GIN indexes support optional filters on `namespaces` and `cwe`. They do not affect ranking; they make overlap queries efficient. Their usefulness still depends on correct metadata and a sensible filter from the caller.
 
-Why GIN for three of the four? **GIN** — Generalized Inverted Index — supports the containment and overlap operators I use on composite values. A `tsvector` contains lexemes; `namespaces` and `cwe` are arrays. The query operators, data shape, and distribution all matter. "Many values means GIN" is a useful first instinct, not a universal law.
+Why GIN for three of the four? A **Generalized Inverted Index** supports the containment and overlap operators I use on composite values. A `tsvector` contains lexemes, while `namespaces` and `cwe` are arrays. "Many values means GIN" is a useful first instinct, but the query operators and data distribution still matter.
 
-Contrast a plain scalar column — a `status` string, an id — where a **B-tree** is right: one value per row, sorted, binary-searchable.
+A scalar column such as `status` or an id will often use a **B-tree**, which keeps values sorted for efficient lookup.
 
-I know that contrast is real because I got it wrong first. The original schema had a *singular* `namespace text` column with a B-tree on it, which was correct for what it was. Then reality intervened: a technique for password-reset poisoning genuinely belongs to both `host-header` and `account-takeover`, and forcing a single label meant either duplicating records or losing a retrieval path. So a migration turned the column into `text[]` — and the index had to change with it:
+The original schema had a singular `namespace text` column with a B-tree. A password-reset poisoning technique can belong to both `host-header` and `account-takeover`, however, so one label would either lose a retrieval path or force me to duplicate the record. I changed the column to `text[]` and replaced its index:
 
 ```sql:MIGRATION_0002
 drop index "bit"."records_namespace_idx";
@@ -96,38 +94,34 @@ create index "records_namespaces_idx" on "bit"."records" using gin ("namespaces"
 alter table "bit"."records" drop column "namespace";
 ```
 
-The column changed shape from scalar to multi-valued, so the index changed from B-tree to GIN. Not a preference. A consequence.
+The move from a scalar equality query to array overlap changed the suitable index from B-tree to GIN.
 
-And the fourth index — HNSW over a 1024-dimensional vector — is a different animal entirely, which is the next section.
-
-> Pick the index for the operators and data shape you actually use.
->
-> The schema gets you to a shortlist; `EXPLAIN ANALYZE` gets the final vote.
+The fourth index is HNSW over a 1024-dimensional vector, and it behaves differently from the GIN and B-tree indexes.
 
 ## 04_THE_INDEX_I_CHOSE_WRONG
 
 
-I started with **IVFFlat**, pgvector's other vector index, and I want to walk through why — because the reasoning was sound, the failure mode was subtle, and understanding it is the fastest way to understand what HNSW buys you.
+I started with **IVFFlat**, pgvector's other vector index. The decision seemed reasonable until I looked closely at when IVFFlat learns its clusters.
 
-Here's how IVFFlat works. "IVF" is *inverted file*; "Flat" means vectors are stored uncompressed. At build time it runs k-means over your vectors and picks some number of centroids — say 100 — carving the space into 100 neighbourhoods, then files every vector into its nearest centroid's list. At query time you find the nearest few centroids and search only inside those lists. That's the speedup: you skip most of the table.
+IVFFlat uses an inverted file of uncompressed vectors. At build time it runs k-means over the existing vectors and picks a set of centroids. If there are 100 centroids, each vector is assigned to its nearest list. A query searches only the nearest few lists instead of most of the table.
 
-The critical thing — and this is what I initially glossed over — is that **two different things happen at two different times**:
+The timing matters:
 
 - **At `CREATE INDEX` (or `REINDEX`)**, pgvector runs k-means over whatever rows exist *right then* and freezes the centroids. They never move again.
 - **On every `INSERT`**, the new row is assigned to its nearest *existing* centroid's list. No reindex needed; the row is immediately findable.
 
-Read those together and the problem surfaces. My migration creates the index on an **empty table**, and the seeder loads records afterward. So the centroids were learned from nothing — and never updated as the corpus grew from 22 records to 200 to 20,000. The index keeps absorbing rows correctly, but the *geometry* it uses to decide where to look is frozen in a past that barely existed.
+My migration creates the index on an **empty table**, then the seeder loads the records. The initial centroids therefore had no representative data behind them, and they would not update as the corpus grew from 22 records to 200 or 20,000. Inserts still join an existing list, but the partitioning used at query time remains tied to the earlier corpus.
 
 My first fix was a setting called `probes`, which controls how many lists a query considers:
 
 - **`probes = 100` (all lists).** At that point pgvector can prefer an exact plan rather than use IVFFlat at all. Either way, I had configured away the speed benefit I chose the approximate index for. The seeder also ran a `REINDEX` after loading to rebuild centroids over real data.
-- **`probes = 5` (the actual speed optimization).** You scan only the nearest few lists. *Now* centroid quality is load-bearing, and clusters learned from 22 rows may be wildly unbalanced for 20,000 — so the true nearest neighbour can sit in a list you never probed, and it silently doesn't come back.
+- **`probes = 5` (the actual speed optimization).** The query scans only the nearest few lists. If the clusters are poorly balanced, the true nearest neighbour may sit in a list the query never probes.
 
-That worked. But look at what I'd built: an approximate index configured to be exhaustive, plus a maintenance step in the seeder, plus a decision to revisit every time the corpus grew an order of magnitude. All of IVFFlat's operational baggage and none of its speed.
+It worked, but I had configured the approximate index to behave exhaustively and added a maintenance step to the seeder. I would also need to revisit it as the corpus grew. That removed most of the benefit I wanted from IVFFlat.
 
 So I switched to **HNSW** (Hierarchical Navigable Small World) before the first migration shipped. Rather than partitioning space into buckets, HNSW builds a layered graph where each vector is a node linked to its neighbours. Searching means entering at the sparse top layer, greedily walking toward the query, then dropping to denser layers to refine. There are no centroids at all.
 
-That single structural difference erases the whole problem:
+Incremental graph construction avoids the centroid-training dependency:
 
 - **No data-at-build-time dependency.** The graph is built incrementally as rows insert, so there's nothing that "learns" from whatever happened to be in the table when the migration ran. The empty-table caveat doesn't exist.
 - **No corpus-training step.** The seeder's IVFFlat-specific `REINDEX` is gone. HNSW still has normal database maintenance costs, and deletes, vacuuming, construction settings, memory, and corpus growth remain worth observing.
@@ -135,23 +129,17 @@ That single structural difference erases the whole problem:
 
 The tradeoff I accepted: HNSW inserts are heavier and the index uses more memory. For a knowledge base that's read far more than it's written and capped well under a million records, that's a trade I'll take every time.
 
-> IVFFlat's centroids are a snapshot. HNSW's graph is a living structure.
->
-> If *my* migration builds an index before seeding, it builds against an empty table. Deployment order is part of the index design.
-
 ## 05_WHAT_I_ACTUALLY_LEARNED
 
-Two things from all of this generalise well beyond a vuln bank:
+I came away with two practical lessons:
 
 - **Index type follows operators, data shape, and workload.** My `namespace` → `namespaces[]` migration changed both the column and the query operator, so the B-tree became a GIN index. That is a useful concrete lesson without turning it into a universal mapping table.
 - **Find out *when* your index learns.** IVFFlat learns once, at build time. HNSW learns continuously, on insert. That single difference decided everything downstream: whether the seeder needs a maintenance step, whether recall decays as the corpus grows, and whether a migration running against an empty table is harmless or quietly poisonous. It is the first question I'll ask of any index from now on.
 
-And the meta-lesson, which is really why I write these up: the IVFFlat detour cost me a couple of days and left no code in the repo. But I now understand why HNSW exists in a way I would not have if I'd picked it correctly by accident. Reversing a decision you understand is cheap. Never having made it is expensive later.
+The IVFFlat detour cost me a couple of days and left no code in the repository, but it gave me a much clearer understanding of why HNSW fits this deployment.
 
 ## 06_NEXT
 
 The first storage design is in place: one record per retrieval unit, four indexes matched to current query patterns, and an HNSW graph that accepts incremental inserts. None of that proves a query returns the right record yet.
 
-Next up — **[Two Legs, One List](/writing/vuln-bank-hybrid-retrieval)** — is the read path: running the semantic and lexical legs in parallel, merging two rankings whose scores can't be compared, the bug where an approximate index hands you a short list with a `200 OK`, and the measurement that tells me whether any of it works.
-
-*Knowing where things are kept is not the same as knowing how to find them.*
+Next up, **[Two Legs, One List](/writing/vuln-bank-hybrid-retrieval)** follows the read path through semantic and lexical search, fusion, reranking, filtered HNSW behavior, and recall@5.
